@@ -1,60 +1,136 @@
-import './style.css'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.ts'
+import './style.css';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+class Application {
+  private canvasKit: any = null;
+  private skiaSurface: any = null;
 
-<div class="ticks"></div>
+  constructor() {
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', () => this.init());
+    } else {
+      this.init();
+    }
+  }
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+  private async init(): Promise<void> {
+    try {
+      console.log('[App] Запуск инициализации...');
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+      await this.initSkia();
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+      this.drawTestScreen();
+
+      this.setupUIEvents();
+
+      console.log('[App] Приложение готово к работе!');
+    } catch (error) {
+      console.error('[App] Ошибка при старте:', error);
+    }
+  }
+
+  private async initSkia(): Promise<void> {
+    if (!CanvasKitInit) {
+      throw new Error('Глобальная функция CanvasKitInit не найдена.');
+    }
+
+    this.canvasKit = await CanvasKitInit({
+      locateFile: (file: string) => `/${file}`,
+    });
+
+    if (!this.canvasKit) {
+      throw new Error('Не удалось инициализировать объект CanvasKit.');
+    }
+
+    const viewport = document.getElementById('skia-viewport');
+    if (!viewport) throw new Error('Не найден контейнер #skia-viewport');
+
+    const canvasElement = document.createElement('canvas');
+    canvasElement.width = 500;
+    canvasElement.height = 500;
+    viewport.appendChild(canvasElement);
+
+    this.skiaSurface = this.canvasKit.MakeWebGLCanvasSurface(canvasElement);
+    if (!this.skiaSurface) {
+      throw new Error('Не удалось создать WebGL-поверхность Skia.');
+    }
+  }
+
+  private drawTestScreen(): void {
+    const canvas = this.skiaSurface.getCanvas();
+    canvas.clear(this.canvasKit.Color(240, 240, 240, 1.0));
+
+    const paint = new this.canvasKit.Paint();
+    paint.setColor(this.canvasKit.Color(0, 102, 204, 1.0));
+    paint.setStyle(this.canvasKit.PaintStyle.Fill);
+    paint.setAntiAlias(true);
+
+    canvas.drawRect(this.canvasKit.LTRBRect(150, 150, 350, 350), paint);
+
+    this.skiaSurface.flush();
+    paint.delete();
+  }
+
+  private setupUIEvents(): void {
+    const exportBtn = document.getElementById('btn-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.handlePdfExport());
+    }
+
+    document.getElementById('btn-generate')?.addEventListener('click', () => {
+      console.log('Кнопка генерации фигуры сработает после интеграции Pixi.js');
+    });
+    document.getElementById('btn-switch')?.addEventListener('click', () => {
+      console.log('Кнопка переключения сцен сработает после интеграции Pixi.js');
+    });
+  }
+
+  private handlePdfExport(): void {
+    console.log('[Export] Начинаем экспорт...');
+
+    if (!this.canvasKit.GeneratePDFBase64) {
+      alert('Ошибка: Метод GeneratePDFBase64 не найден.');
+      return;
+    }
+
+    try {
+      const base64Str = this.canvasKit.GeneratePDFBase64(500, 500, (pdfCanvas: any) => {
+        pdfCanvas.clear(this.canvasKit.Color(240, 240, 240, 1.0));
+
+        const paint = new this.canvasKit.Paint();
+        paint.setColor(this.canvasKit.Color(0, 102, 204, 1.0));
+        paint.setStyle(this.canvasKit.PaintStyle.Fill);
+        paint.setAntiAlias(true);
+
+        pdfCanvas.drawRect(this.canvasKit.LTRBRect(150, 150, 350, 350), paint);
+
+        paint.delete();
+      });
+
+      if (!base64Str || base64Str.startsWith("ERROR_")) {
+        alert(`Ошибка нативной сборки Skia: ${base64Str}`);
+        return;
+      }
+
+      const binaryString = window.atob(base64Str);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'scene.pdf';
+      link.click();
+
+      URL.revokeObjectURL(url);
+      console.log('[Export] Настоящий векторный PDF успешно скачан!');
+    } catch (err) {
+      console.error('[Export] Критическая ошибка:', err);
+    }
+  }
+}
+
+new Application();

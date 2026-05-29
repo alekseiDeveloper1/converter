@@ -7,7 +7,29 @@
     <title>converter</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <header class="control-panel">
+        <h1>Pixi & Skia Bridge</h1>
+        <div class="actions">
+          <button id="btn-generate">Сгенерировать фигуру</button>
+          <button id="btn-switch">Переключить сцену</button>
+          <button id="btn-export" class="primary">Экспорт в PDF</button>
+        </div>
+      </header>
+
+      <main class="viewer-container">
+        <div class="canvas-box">
+          <h2>Pixi.js Canvas (Источник)</h2>
+          <div id="pixi-viewport"></div>
+        </div>
+
+        <div class="canvas-box">
+          <h2>Skia Canvas (Результат рендера)</h2>
+          <div id="skia-viewport"></div>
+        </div>
+      </main>
+    </div>
+    <script src="/canvaskit.js"></script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

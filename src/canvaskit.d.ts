@@ -1,0 +1,1 @@
+declare const CanvasKitInit: typeof import('canvaskit-wasm');
