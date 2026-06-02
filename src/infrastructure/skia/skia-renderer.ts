@@ -162,27 +162,28 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   private drawComplexPath(skCanvas: Canvas, shape: IPixiGraphicsData['shape'], paint: Paint, isStroke: boolean): void {
-    const pathFactory = this.canvasKit.Path as unknown as CanvasKit['Path'];
-    if (typeof pathFactory?.MakeFromSVGString !== 'function' || !shape.points) return;
+    if (!shape.points || shape.points.length < 4) return;
+    const points = shape.points;
 
-    const shouldClose = !!(shape.closeStroke || (isStroke && shape.closeStroke));
-    const svgString = this.buildSvgPathString(shape.points, shouldClose);
-    const path = pathFactory.MakeFromSVGString(svgString);
-    if (!path) return;
+    const path = new this.canvasKit.Path();
 
     try {
+      path.moveTo(points[0], points[1]);
+
+      for (let i = 2; i < points.length; i += 2) {
+        path.lineTo(points[i], points[i + 1]);
+      }
+
+      if (shape.closeStroke || (isStroke && shape.closeStroke)) {
+        path.close();
+      }
+
       skCanvas.drawPath(path, paint);
+    } catch (pathError) {
+      console.error('[SkiaRenderer] Нативная ошибка заполнения Path:', pathError);
     } finally {
       path.delete();
     }
-  }
-
-  private buildSvgPathString(points: number[], shouldClose: boolean): string {
-    let svgString = `M ${points[0]} ${points[1]}`;
-    for (let i = 2; i < points.length; i += 2) {
-      svgString += ` L ${points[i]} ${points[i + 1]}`;
-    }
-    return shouldClose ? `${svgString} Z` : svgString;
   }
 
   private createCanvasElement(): HTMLCanvasElement {
