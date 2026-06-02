@@ -20,15 +20,23 @@ interface IPixiGraphicsData {
   lineStyle: IPixiLineStyle;
 }
 
+type RenderHandler = (skCanvas: Canvas, node: PIXI.DisplayObject) => void;
+
 export class SkiaRenderer implements IVectorRenderer {
   private readonly DEFAULT_BACKGROUND_COLOR: Float32Array;
   private readonly CANVAS_SIZE = 500;
   private skiaSurface: Surface | null = null;
   private readonly canvasKit: CanvasKit;
+  private readonly renderRegistry: Record<string, RenderHandler>;
 
   constructor(canvasKit: CanvasKit) {
     this.canvasKit = canvasKit;
     this.DEFAULT_BACKGROUND_COLOR = this.canvasKit.Color(240, 240, 240, 1.0);
+
+    this.renderRegistry = {
+      'Graphics': (skCanvas, node) => this.drawPixiGraphics(skCanvas, node as PIXI.Graphics),
+      'Container': (skCanvas, node) => this.renderChildren(skCanvas, node as PIXI.Container),
+    };
   }
 
   public async initialize(canvasContainerId: string): Promise<void> {
@@ -75,17 +83,26 @@ export class SkiaRenderer implements IVectorRenderer {
     skCanvas.save();
     skCanvas.concat(this.extractSkMatrix(node.transform.localTransform));
 
-    if (node instanceof PIXI.Graphics) {
-      this.drawPixiGraphics(skCanvas, node);
-    }
+    const nodeType = node.constructor.name;
+    const renderTarget = this.renderRegistry[nodeType];
 
-    if (this.isRenderableContainer(node)) {
-      for (const child of node.children) {
-        this.renderNode(skCanvas, child);
-      }
+    if (renderTarget) {
+      renderTarget(skCanvas, node);
+    } else if (node instanceof PIXI.Graphics) {
+      this.drawPixiGraphics(skCanvas, node);
+    } else if (node instanceof PIXI.Container) {
+      this.renderChildren(skCanvas, node);
     }
 
     skCanvas.restore();
+  }
+
+  private renderChildren(skCanvas: Canvas, container: PIXI.Container): void {
+    if (container.children && container.children.length > 0) {
+      for (const child of container.children) {
+        this.renderNode(skCanvas, child);
+      }
+    }
   }
 
   private drawPixiGraphics(skCanvas: Canvas, pixiGraphics: PIXI.Graphics): void {
@@ -97,6 +114,8 @@ export class SkiaRenderer implements IVectorRenderer {
       this.renderFill(skCanvas, pixiGraphics, graphicsData);
       this.renderStroke(skCanvas, pixiGraphics, graphicsData);
     }
+
+    this.renderChildren(skCanvas, pixiGraphics);
   }
 
   private renderFill(skCanvas: Canvas, graphics: PIXI.Graphics, data: IPixiGraphicsData): void {
@@ -143,7 +162,7 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   private drawComplexPath(skCanvas: Canvas, shape: IPixiGraphicsData['shape'], paint: Paint, isStroke: boolean): void {
-    const pathFactory = this.canvasKit.Path as Path;
+    const pathFactory = this.canvasKit.Path as unknown as CanvasKit['Path'];
     if (typeof pathFactory?.MakeFromSVGString !== 'function' || !shape.points) return;
 
     const shouldClose = !!(shape.closeStroke || (isStroke && shape.closeStroke));
@@ -171,10 +190,6 @@ export class SkiaRenderer implements IVectorRenderer {
     canvas.width = this.CANVAS_SIZE;
     canvas.height = this.CANVAS_SIZE;
     return canvas;
-  }
-
-  private isRenderableContainer(node: PIXI.DisplayObject): node is PIXI.Container {
-    return node instanceof PIXI.Container && !(node instanceof PIXI.Graphics) && !!node.children && node.children.length > 0;
   }
 
   private extractSkMatrix(transform: PIXI.Matrix): number[] {
