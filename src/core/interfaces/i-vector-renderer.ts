@@ -1,3 +1,5 @@
 export interface IVectorRenderer {
-  addGraphics(): void;
+  initialize(canvasContainerId: string): Promise<void>;
+  render(rootContainer: unknown): void;
+  clear(): void;
 }

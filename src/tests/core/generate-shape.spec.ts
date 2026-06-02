@@ -1,17 +1,32 @@
-import { describe, expect, it, jest } from '@jest/globals';
 import { GenerateShapeUseCase } from '@/core/use-cases/generate-shape.use-case';
-import type { IVectorRenderer } from '@/core/interfaces/i-vector-renderer';
+import * as PIXI from 'pixi.js-legacy';
 
-describe('GenerateShapeUseCase (TDD)', () => {
-  it('должен вызывать метод добавления фигуры в рендерер', () => {
-    const mockRenderer: jest.Mocked<IVectorRenderer> = {
-      addGraphics: jest.fn(),
-    };
+describe('GenerateShapeUseCase (TDD/Unit)', () => {
+  let useCase: GenerateShapeUseCase;
+  let mockContainer: PIXI.Container;
 
-    const useCase = new GenerateShapeUseCase(mockRenderer);
+  beforeEach(() => {
+    useCase = new GenerateShapeUseCase();
+    mockContainer = new PIXI.Container();
+  });
 
-    useCase.execute();
+  it('должен добавить ровно один дочерний элемент в контейнер', () => {
+    useCase.execute(mockContainer);
 
-    expect(mockRenderer.addGraphics).toHaveBeenCalledTimes(1);
+    expect(mockContainer.children.length).toBe(1);
+  });
+
+  it('добавленный элемент должен быть графическим объектом (PIXI.Graphics)', () => {
+    useCase.execute(mockContainer);
+    const addedChild = mockContainer.children[0];
+
+    expect(addedChild).toBeInstanceOf(PIXI.Graphics);
+  });
+
+  it('фигуре должно быть присвоено имя для распознавания транслятором', () => {
+    useCase.execute(mockContainer);
+    const addedChild = mockContainer.children[0];
+
+    expect(addedChild.name).toBe('graphics_rect');
   });
 });

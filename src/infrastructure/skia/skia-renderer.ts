@@ -1,0 +1,194 @@
+import type { IVectorRenderer } from '@/core/interfaces/i-vector-renderer';
+import * as PIXI from 'pixi.js-legacy';
+
+interface IPixiFillStyle {
+  visible: boolean;
+  color: number;
+  alpha: number;
+}
+
+interface IPixiLineStyle {
+  visible: boolean;
+  width: number;
+  color: number;
+  alpha: number;
+}
+
+interface IPixiGraphicsData {
+  shape: PIXI.IShape & { points?: number[]; closeStroke?: boolean; radius?: number };
+  fillStyle: IPixiFillStyle;
+  lineStyle: IPixiLineStyle;
+}
+
+export class SkiaRenderer implements IVectorRenderer {
+  private readonly DEFAULT_BACKGROUND_COLOR: Float32Array;
+  private readonly CANVAS_SIZE = 500;
+  private skiaSurface: Surface | null = null;
+  private readonly canvasKit: CanvasKit;
+
+  constructor(canvasKit: CanvasKit) {
+    this.canvasKit = canvasKit;
+    this.DEFAULT_BACKGROUND_COLOR = this.canvasKit.Color(240, 240, 240, 1.0);
+  }
+
+  public async initialize(canvasContainerId: string): Promise<void> {
+    const viewport = document.getElementById(canvasContainerId);
+    if (!viewport) {
+      throw new Error(`Не найден контейнер #${canvasContainerId}`);
+    }
+
+    const canvasElement = this.createCanvasElement();
+    viewport.appendChild(canvasElement);
+
+    this.skiaSurface = this.canvasKit.MakeWebGLCanvasSurface(canvasElement);
+    if (!this.skiaSurface) {
+      throw new Error('Не удалось создать WebGL-поверхность Skia.');
+    }
+  }
+
+  public clear(): void {
+    if (!this.skiaSurface) return;
+
+    const canvas = this.skiaSurface.getCanvas();
+    canvas.clear(this.DEFAULT_BACKGROUND_COLOR);
+    this.skiaSurface.flush();
+  }
+
+  public render(rootContainer: unknown): void {
+    if (!this.skiaSurface) return;
+
+    const canvas = this.skiaSurface.getCanvas();
+    canvas.clear(this.DEFAULT_BACKGROUND_COLOR);
+
+    const pixiContainer = rootContainer as PIXI.Container;
+    if (typeof pixiContainer.updateTransform === 'function') {
+      pixiContainer.updateTransform();
+    }
+
+    this.renderNode(canvas, pixiContainer);
+    this.skiaSurface.flush();
+  }
+
+  private renderNode(skCanvas: Canvas, node: PIXI.DisplayObject): void {
+    if (!node.visible || node.alpha <= 0) return;
+
+    skCanvas.save();
+    skCanvas.concat(this.extractSkMatrix(node.transform.localTransform));
+
+    if (node instanceof PIXI.Graphics) {
+      this.drawPixiGraphics(skCanvas, node);
+    }
+
+    if (this.isRenderableContainer(node)) {
+      for (const child of node.children) {
+        this.renderNode(skCanvas, child);
+      }
+    }
+
+    skCanvas.restore();
+  }
+
+  private drawPixiGraphics(skCanvas: Canvas, pixiGraphics: PIXI.Graphics): void {
+    const geometry = pixiGraphics.geometry;
+    if (!geometry || !geometry.graphicsData) return;
+
+    const graphicsDataList = geometry.graphicsData as IPixiGraphicsData[];
+    for (const graphicsData of graphicsDataList) {
+      this.renderFill(skCanvas, pixiGraphics, graphicsData);
+      this.renderStroke(skCanvas, pixiGraphics, graphicsData);
+    }
+  }
+
+  private renderFill(skCanvas: Canvas, graphics: PIXI.Graphics, data: IPixiGraphicsData): void {
+    if (!data.fillStyle || !data.fillStyle.visible) return;
+
+    const paint = new this.canvasKit.Paint();
+    paint.setAntiAlias(true);
+    paint.setStyle(this.canvasKit.PaintStyle.Fill);
+    paint.setColor(this.hexToSkColor(data.fillStyle.color, data.fillStyle.alpha * graphics.alpha));
+
+    this.drawShape(skCanvas, data.shape, paint, false);
+    paint.delete();
+  }
+
+  private renderStroke(skCanvas: Canvas, graphics: PIXI.Graphics, data: IPixiGraphicsData): void {
+    if (!data.lineStyle || !data.lineStyle.visible || data.lineStyle.width <= 0) return;
+
+    const paint = new this.canvasKit.Paint();
+    paint.setAntiAlias(true);
+    paint.setStyle(this.canvasKit.PaintStyle.Stroke);
+    paint.setStrokeWidth(data.lineStyle.width);
+    paint.setColor(this.hexToSkColor(data.lineStyle.color, data.lineStyle.alpha * graphics.alpha));
+    paint.setStrokeCap(this.canvasKit.StrokeCap.Round);
+    paint.setStrokeJoin(this.canvasKit.StrokeJoin.Round);
+
+    this.drawShape(skCanvas, data.shape, paint, true);
+    paint.delete();
+  }
+
+  private drawShape(skCanvas: Canvas, shape: IPixiGraphicsData['shape'], paint: Paint, isStroke: boolean): void {
+    if (shape instanceof PIXI.Rectangle) {
+      skCanvas.drawRect(this.canvasKit.LTRBRect(shape.x, shape.y, shape.x + shape.width, shape.y + shape.height), paint);
+      return;
+    }
+
+    if (shape instanceof PIXI.Circle) {
+      skCanvas.drawCircle(shape.x, shape.y, shape.radius ?? 0, paint);
+      return;
+    }
+
+    if (shape && shape.points && shape.points.length >= 4) {
+      this.drawComplexPath(skCanvas, shape, paint, isStroke);
+    }
+  }
+
+  private drawComplexPath(skCanvas: Canvas, shape: IPixiGraphicsData['shape'], paint: Paint, isStroke: boolean): void {
+    const pathFactory = this.canvasKit.Path as Path;
+    if (typeof pathFactory?.MakeFromSVGString !== 'function' || !shape.points) return;
+
+    const shouldClose = !!(shape.closeStroke || (isStroke && shape.closeStroke));
+    const svgString = this.buildSvgPathString(shape.points, shouldClose);
+    const path = pathFactory.MakeFromSVGString(svgString);
+    if (!path) return;
+
+    try {
+      skCanvas.drawPath(path, paint);
+    } finally {
+      path.delete();
+    }
+  }
+
+  private buildSvgPathString(points: number[], shouldClose: boolean): string {
+    let svgString = `M ${points[0]} ${points[1]}`;
+    for (let i = 2; i < points.length; i += 2) {
+      svgString += ` L ${points[i]} ${points[i + 1]}`;
+    }
+    return shouldClose ? `${svgString} Z` : svgString;
+  }
+
+  private createCanvasElement(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = this.CANVAS_SIZE;
+    canvas.height = this.CANVAS_SIZE;
+    return canvas;
+  }
+
+  private isRenderableContainer(node: PIXI.DisplayObject): node is PIXI.Container {
+    return node instanceof PIXI.Container && !(node instanceof PIXI.Graphics) && !!node.children && node.children.length > 0;
+  }
+
+  private extractSkMatrix(transform: PIXI.Matrix): number[] {
+    return [
+      transform.a, transform.c, transform.tx,
+      transform.b, transform.d, transform.ty,
+      0,           0,           1
+    ];
+  }
+
+  private hexToSkColor(hexColor: number, alpha: number): Float32Array {
+    const r = ((hexColor >> 16) & 0xFF) / 255;
+    const g = ((hexColor >> 8) & 0xFF) / 255;
+    const b = (hexColor & 0xFF) / 255;
+    return this.canvasKit.Color4f(r, g, b, alpha);
+  }
+}

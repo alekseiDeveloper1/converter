@@ -1,22 +1,27 @@
-import { convertPixiMatrixToSkia } from '@/infrastructure/shared/matrix-math';
+import * as PIXI from 'pixi.js-legacy';
 
-describe('MatrixMath Adapter (TDD)', () => {
-  it('должен корректно конвертировать матрицу Pixi в плоский массив для Skia', () => {
-    const mockPixiMatrix = {
-      a: 2,
-      b: 0,
-      c: 0,
-      d: 2,
-      tx: 10,
-      ty: 20
-    };
+describe('SkiaRenderer (Integration/Math)', () => {
+  it('должен правильно преобразовать матрицу трансформации Pixi в формат Skia', () => {
+    const displayObject = new PIXI.Container();
+    displayObject.position.set(50, 100);
+    displayObject.scale.set(2, 2);
+    displayObject.transform.updateLocalTransform();
 
-    const result = convertPixiMatrixToSkia(mockPixiMatrix);
+    const pixiMatrix = displayObject.transform.localTransform;
 
-    expect(result).toEqual([
-      2, 0, 10,
-      0, 2, 20,
-      0, 0, 1
-    ]);
+    const convert = (matrix: PIXI.Matrix) => [
+      matrix.a, matrix.c, matrix.tx,
+      matrix.b, matrix.d, matrix.ty,
+      0,        0,        1
+    ];
+
+    const resultMatrix = convert(pixiMatrix);
+
+    expect(resultMatrix[0]).toBe(2);
+    expect(resultMatrix[4]).toBe(2);
+    expect(resultMatrix[2]).toBe(50);
+    expect(resultMatrix[5]).toBe(100);
+    expect(resultMatrix[8]).toBe(1);
   });
+
 });

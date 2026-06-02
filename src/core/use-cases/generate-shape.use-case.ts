@@ -1,13 +1,19 @@
-import type { IVectorRenderer } from '../interfaces/i-vector-renderer';
+import * as PIXI from 'pixi.js-legacy';
 
 export class GenerateShapeUseCase {
-  private renderer: IVectorRenderer;
+  public execute(targetContainer: PIXI.Container): void {
+    const randomX = Math.random() * 300;
+    const randomY = Math.random() * 300;
+    const randomSize = 50 + Math.random() * 100;
+    const randomColor = Math.floor(Math.random() * 16777215);
 
-  constructor(renderer: IVectorRenderer) {
-    this.renderer = renderer;
-  }
+    const randomGraphics = new PIXI.Graphics();
+    randomGraphics.beginFill(randomColor);
+    randomGraphics.drawRect(randomX, randomY, randomSize, randomSize);
+    randomGraphics.endFill();
 
-  public execute(): void {
-    this.renderer.addGraphics();
+    randomGraphics.name = 'graphics_rect';
+
+    targetContainer.addChild(randomGraphics);
   }
 }
