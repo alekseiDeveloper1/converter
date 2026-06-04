@@ -31,7 +31,7 @@ class Application {
 
       this.setupUIEvents();
 
-      console.log('[App] Модульная архитектура запущена!');
+      console.warn('[App] Модульная архитектура запущена!');
     } catch (err) {
       console.error('[App] Ошибка инициализации слоев:', err);
     }
@@ -57,21 +57,31 @@ class Application {
   }
 
   private handlePdfExport(): void {
-    console.log('[Export] Нативный векторный экспорт сцены...');
+    console.warn('[Export] Нативный векторный экспорт сцены...');
     const pixiRoot = this.pixiService.getRootContainer();
 
-    const base64Str = this.canvasKit?.GeneratePDFBase64?.(500, 500, (pdfCanvas: Canvas) => {
-      this.skiaRenderer['renderNode'](pdfCanvas, pixiRoot);
-    });
+    const base64Str = this.canvasKit?.GeneratePDFBase64?.(
+      500,
+      500,
+      (pdfCanvas: Canvas) => {
+        this.skiaRenderer['renderNode'](pdfCanvas, pixiRoot);
+      },
+    );
 
     if (!base64Str) {
-      console.warn('[Export] CanvasKit или метод GeneratePDFBase64 недоступен.');
+      console.warn(
+        '[Export] CanvasKit или метод GeneratePDFBase64 недоступен.',
+      );
       return;
     }
 
     this.downloadBase64File(base64Str, 'vector_scene.pdf', 'application/pdf');
   }
-  private downloadBase64File(base64Str: string, fileName: string, mimeType: string): void {
+  private downloadBase64File(
+    base64Str: string,
+    fileName: string,
+    mimeType: string,
+  ): void {
     const binaryString = window.atob(base64Str);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);

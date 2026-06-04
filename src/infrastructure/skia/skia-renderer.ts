@@ -20,16 +20,21 @@ interface IPixiGraphicsData {
   lineStyle: IPixiLineStyle;
 }
 
-type RenderHandler = (skCanvas: Canvas, node: any) => void;
+type RenderHandler = (skCanvas: Canvas, node: PIXI.DisplayObject) => void;
 
 interface IRenderMapping {
-  klass: new (...args: any[]) => PIXI.DisplayObject;
+  klass: new (...args: ConstructorParameters<typeof PIXI.DisplayObject>) => PIXI.DisplayObject;
   handler: RenderHandler;
 }
 
 interface IShapeStrategy {
   canDraw(shape: unknown): boolean;
-  draw(skCanvas: Canvas, shape: unknown, paint: Paint, canvasKit: CanvasKit): void;
+  draw(
+    skCanvas: Canvas,
+    shape: unknown,
+    paint: Paint,
+    canvasKit: CanvasKit,
+  ): void;
 }
 
 export class SkiaRenderer implements IVectorRenderer {
@@ -47,33 +52,51 @@ export class SkiaRenderer implements IVectorRenderer {
     this.renderMappings = [
       {
         klass: PIXI.Graphics,
-        handler: (skCanvas, node) => this.drawPixiGraphics(skCanvas, node)
+        handler: (skCanvas, node): void  => this.drawPixiGraphics(skCanvas, node as PIXI.Graphics),
       },
       {
         klass: PIXI.Container,
-        handler: (skCanvas, node) => this.renderChildren(skCanvas, node)
-      }
+        handler: (skCanvas, node): void  => this.renderChildren(skCanvas, node as PIXI.Graphics),
+      },
     ];
 
     this.shapeStrategies = [
       {
-        canDraw: (shape) => shape instanceof PIXI.Rectangle,
-        draw: (skCanvas, shape: PIXI.Rectangle, paint, ck) => {
-          skCanvas.drawRect(ck.LTRBRect(shape.x, shape.y, shape.x + shape.width, shape.y + shape.height), paint);
-        }
+        canDraw: (shape): boolean => shape instanceof PIXI.Rectangle,
+        draw: (skCanvas, shape: PIXI.Rectangle, paint, ck): void => {
+          skCanvas.drawRect(
+            ck.LTRBRect(
+              shape.x,
+              shape.y,
+              shape.x + shape.width,
+              shape.y + shape.height,
+            ),
+            paint,
+          );
+        },
       },
       {
-        canDraw: (shape) => shape instanceof PIXI.Circle,
-        draw: (skCanvas, shape: PIXI.Circle, paint) => {
+        canDraw: (shape): boolean => shape instanceof PIXI.Circle,
+        draw: (skCanvas, shape: PIXI.Circle, paint): void => {
           skCanvas.drawCircle(shape.x, shape.y, shape.radius, paint);
-        }
+        },
       },
       {
-        canDraw: (shape) => typeof shape === 'object' && shape !== null && 'points' in shape,
-        draw: (skCanvas, shape: { points: number[]; closeStroke?: boolean }, paint) => {
-          this.drawComplexPath(skCanvas, shape.points, shape.closeStroke, paint);
-        }
-      }
+        canDraw: (shape): boolean =>
+          typeof shape === 'object' && shape !== null && 'points' in shape,
+        draw: (
+          skCanvas,
+          shape: { points: number[]; closeStroke?: boolean },
+          paint,
+        ): void => {
+          this.drawComplexPath(
+            skCanvas,
+            shape.points,
+            shape.closeStroke,
+            paint,
+          );
+        },
+      },
     ];
   }
 
@@ -93,7 +116,9 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   public clear(): void {
-    if (!this.skiaSurface) return;
+    if (!this.skiaSurface) {
+      return;
+    }
 
     const canvas = this.skiaSurface.getCanvas();
     canvas.clear(this.DEFAULT_BACKGROUND_COLOR);
@@ -101,7 +126,9 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   public render(rootContainer: unknown): void {
-    if (!this.skiaSurface) return;
+    if (!this.skiaSurface) {
+      return;
+    }
 
     const canvas = this.skiaSurface.getCanvas();
     canvas.clear(this.DEFAULT_BACKGROUND_COLOR);
@@ -116,12 +143,14 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   private renderNode(skCanvas: Canvas, node: PIXI.DisplayObject): void {
-    if (!node.visible || node.alpha <= 0) return;
+    if (!node.visible || node.alpha <= 0) {
+      return;
+    }
 
     skCanvas.save();
     skCanvas.concat(this.extractSkMatrix(node.transform.localTransform));
 
-    const mapping = this.renderMappings.find(m => node instanceof m.klass);
+    const mapping = this.renderMappings.find((m) => node instanceof m.klass);
 
     if (mapping) {
       mapping.handler(skCanvas, node);
@@ -138,9 +167,14 @@ export class SkiaRenderer implements IVectorRenderer {
     }
   }
 
-  private drawPixiGraphics(skCanvas: Canvas, pixiGraphics: PIXI.Graphics): void {
+  private drawPixiGraphics(
+    skCanvas: Canvas,
+    pixiGraphics: PIXI.Graphics,
+  ): void {
     const geometry = pixiGraphics.geometry;
-    if (!geometry || !geometry.graphicsData) return;
+    if (!geometry || !geometry.graphicsData) {
+      return;
+    }
 
     const graphicsDataList = geometry.graphicsData as IPixiGraphicsData[];
     for (const graphicsData of graphicsDataList) {
@@ -151,26 +185,48 @@ export class SkiaRenderer implements IVectorRenderer {
     this.renderChildren(skCanvas, pixiGraphics);
   }
 
-  private renderFill(skCanvas: Canvas, graphics: PIXI.Graphics, data: IPixiGraphicsData): void {
-    if (!data.fillStyle || !data.fillStyle.visible) return;
+  private renderFill(
+    skCanvas: Canvas,
+    graphics: PIXI.Graphics,
+    data: IPixiGraphicsData,
+  ): void {
+    if (!data.fillStyle || !data.fillStyle.visible) {
+      return;
+    }
 
     const paint = new this.canvasKit.Paint();
     paint.setAntiAlias(true);
     paint.setStyle(this.canvasKit.PaintStyle.Fill);
-    paint.setColor(this.hexToSkColor(data.fillStyle.color, data.fillStyle.alpha * graphics.alpha));
+    paint.setColor(
+      this.hexToSkColor(
+        data.fillStyle.color,
+        data.fillStyle.alpha * graphics.alpha,
+      ),
+    );
 
     this.drawShape(skCanvas, data.shape, paint);
     paint.delete();
   }
 
-  private renderStroke(skCanvas: Canvas, graphics: PIXI.Graphics, data: IPixiGraphicsData): void {
-    if (!data.lineStyle || !data.lineStyle.visible || data.lineStyle.width <= 0) return;
+  private renderStroke(
+    skCanvas: Canvas,
+    graphics: PIXI.Graphics,
+    data: IPixiGraphicsData,
+  ): void {
+    if (!data.lineStyle || !data.lineStyle.visible || data.lineStyle.width <= 0) {
+      return;
+    }
 
     const paint = new this.canvasKit.Paint();
     paint.setAntiAlias(true);
     paint.setStyle(this.canvasKit.PaintStyle.Stroke);
     paint.setStrokeWidth(data.lineStyle.width);
-    paint.setColor(this.hexToSkColor(data.lineStyle.color, data.lineStyle.alpha * graphics.alpha));
+    paint.setColor(
+      this.hexToSkColor(
+        data.lineStyle.color,
+        data.lineStyle.alpha * graphics.alpha,
+      ),
+    );
     paint.setStrokeCap(this.canvasKit.StrokeCap.Round);
     paint.setStrokeJoin(this.canvasKit.StrokeJoin.Round);
 
@@ -179,15 +235,22 @@ export class SkiaRenderer implements IVectorRenderer {
   }
 
   private drawShape(skCanvas: Canvas, shape: unknown, paint: Paint): void {
-    const strategy = this.shapeStrategies.find(s => s.canDraw(shape));
+    const strategy = this.shapeStrategies.find((s) => s.canDraw(shape));
 
     if (strategy) {
       strategy.draw(skCanvas, shape, paint, this.canvasKit);
     }
   }
 
-  private drawComplexPath(skCanvas: Canvas, points: number[], closeStroke: boolean | undefined, paint: Paint): void {
-    if (!points || points.length < 4) return;
+  private drawComplexPath(
+    skCanvas: Canvas,
+    points: number[],
+    closeStroke: boolean | undefined,
+    paint: Paint,
+  ): void {
+    if (!points || points.length < 4) {
+      return;
+    }
 
     const path = new this.canvasKit.Path();
 
@@ -204,7 +267,10 @@ export class SkiaRenderer implements IVectorRenderer {
 
       skCanvas.drawPath(path, paint);
     } catch (pathError) {
-      console.error('[SkiaRenderer] Нативная ошибка заполнения Path:', pathError);
+      console.error(
+        '[SkiaRenderer] Нативная ошибка заполнения Path:',
+        pathError,
+      );
     } finally {
       path.delete();
     }
@@ -219,16 +285,22 @@ export class SkiaRenderer implements IVectorRenderer {
 
   private extractSkMatrix(transform: PIXI.Matrix): number[] {
     return [
-      transform.a, transform.c, transform.tx,
-      transform.b, transform.d, transform.ty,
-      0,           0,           1
+      transform.a,
+      transform.c,
+      transform.tx,
+      transform.b,
+      transform.d,
+      transform.ty,
+      0,
+      0,
+      1,
     ];
   }
 
   private hexToSkColor(hexColor: number, alpha: number): Float32Array {
-    const r = ((hexColor >> 16) & 0xFF) / 255;
-    const g = ((hexColor >> 8) & 0xFF) / 255;
-    const b = (hexColor & 0xFF) / 255;
+    const r = ((hexColor >> 16) & 0xff) / 255;
+    const g = ((hexColor >> 8) & 0xff) / 255;
+    const b = (hexColor & 0xff) / 255;
     return this.canvasKit.Color4f(r, g, b, alpha);
   }
 }

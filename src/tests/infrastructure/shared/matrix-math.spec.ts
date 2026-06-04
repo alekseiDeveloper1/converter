@@ -9,10 +9,16 @@ describe('SkiaRenderer (Integration/Math)', () => {
 
     const pixiMatrix = displayObject.transform.localTransform;
 
-    const convert = (matrix: PIXI.Matrix) => [
-      matrix.a, matrix.c, matrix.tx,
-      matrix.b, matrix.d, matrix.ty,
-      0,        0,        1
+    const convert = (matrix: PIXI.Matrix): number[] => [
+      matrix.a,
+      matrix.c,
+      matrix.tx,
+      matrix.b,
+      matrix.d,
+      matrix.ty,
+      0,
+      0,
+      1,
     ];
 
     const resultMatrix = convert(pixiMatrix);
@@ -23,5 +29,4 @@ describe('SkiaRenderer (Integration/Math)', () => {
     expect(resultMatrix[5]).toBe(100);
     expect(resultMatrix[8]).toBe(1);
   });
-
 });

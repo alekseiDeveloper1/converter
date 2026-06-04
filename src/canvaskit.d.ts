@@ -1,4 +1,9 @@
-import type { Canvas as CKCanvas, CanvasKit as CKCanvasKit, Surface as CKSurface, Paint as SKPaint } from 'canvaskit-wasm';
+import type {
+  Canvas as CKCanvas,
+  CanvasKit as CKCanvasKit,
+  Surface as CKSurface,
+  Paint as SKPaint,
+} from 'canvaskit-wasm';
 declare global {
   type Canvas = CKCanvas;
   type CanvasKit = CKCanvasKit;
@@ -9,7 +14,7 @@ declare global {
     GeneratePDFBase64?(
       width: number,
       height: number,
-      callback: (pdfCanvas: Canvas) => void
+      callback: (pdfCanvas: Canvas) => void,
     ): string;
   }
 

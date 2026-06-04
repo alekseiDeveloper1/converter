@@ -15,7 +15,7 @@ export class PixiService {
       width: this.CANVAS_SIZE,
       height: this.CANVAS_SIZE,
       backgroundColor: 0xffffff,
-      forceCanvas: true
+      forceCanvas: true,
     });
 
     viewport.appendChild(this.app.view as HTMLCanvasElement);
@@ -27,7 +27,7 @@ export class PixiService {
     this.createPathGraphics();
     this.createBasicShapes();
 
-    await this.createAndAddSprite();
+    this.createAndAddSprite();
   }
 
   public getRootContainer(): PIXI.Container {
@@ -49,7 +49,7 @@ export class PixiService {
     innerRect.endFill();
 
     transformGroup.addChild(innerRect);
-    this.currentContainer!.addChild(transformGroup);
+    this.currentContainer?.addChild(transformGroup);
   }
 
   private createPathGraphics(): void {
@@ -68,7 +68,7 @@ export class PixiService {
     pathGraphics.closePath();
     pathGraphics.endFill();
 
-    this.currentContainer!.addChild(pathGraphics);
+    this.currentContainer?.addChild(pathGraphics);
   }
 
   private createAndAddSprite(): void {
@@ -110,13 +110,16 @@ export class PixiService {
     vectorSprite.lineStyle(0);
 
     if (vectorSprite.geometry) {
-      const geometryRecord = vectorSprite.geometry as unknown as Record<string, unknown>;
+      const geometryRecord = vectorSprite.geometry as unknown as Record<
+        string,
+        unknown
+      >;
       if (typeof geometryRecord.updateBatches === 'function') {
         (geometryRecord.updateBatches as () => void)();
       }
     }
 
-    this.currentContainer!.addChild(vectorSprite);
+    this.currentContainer?.addChild(vectorSprite);
   }
 
   private createBasicShapes(): void {
@@ -130,7 +133,7 @@ export class PixiService {
     circle.drawCircle(220, 220, 70);
     circle.endFill();
 
-    this.currentContainer!.addChild(rect);
-    this.currentContainer!.addChild(circle);
+    this.currentContainer?.addChild(rect);
+    this.currentContainer?.addChild(circle);
   }
 }

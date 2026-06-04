@@ -9,8 +9,14 @@ interface PixiMatrixLike {
 
 export function convertPixiMatrixToSkia(pixiMatrix: PixiMatrixLike): number[] {
   return [
-    pixiMatrix.a,  pixiMatrix.c,  pixiMatrix.tx,
-    pixiMatrix.b,  pixiMatrix.d,  pixiMatrix.ty,
-    0,             0,             1
+    pixiMatrix.a,
+    pixiMatrix.c,
+    pixiMatrix.tx,
+    pixiMatrix.b,
+    pixiMatrix.d,
+    pixiMatrix.ty,
+    0,
+    0,
+    1,
   ];
 }

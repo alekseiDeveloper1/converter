@@ -1,0 +1,6 @@
+node_modules
+dist
+.vcm_meta
+package-lock.json
+public
+README.md
