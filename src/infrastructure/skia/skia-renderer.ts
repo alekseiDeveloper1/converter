@@ -1,5 +1,5 @@
 import type { IVectorRenderer } from '@/core/interfaces/i-vector-renderer';
-import * as PIXI from 'pixi.js-legacy';
+import {Circle, Container, type DisplayObject, Graphics, type Matrix, Rectangle} from 'pixi.js-legacy';
 
 interface IPixiFillStyle {
   visible: boolean;
@@ -20,10 +20,10 @@ interface IPixiGraphicsData {
   lineStyle: IPixiLineStyle;
 }
 
-type RenderHandler = (skCanvas: Canvas, node: PIXI.DisplayObject) => void;
+type RenderHandler = (skCanvas: Canvas, node: DisplayObject) => void;
 
 interface IRenderMapping {
-  klass: new (...args: ConstructorParameters<typeof PIXI.DisplayObject>) => PIXI.DisplayObject;
+  klass: new (...args: ConstructorParameters<typeof DisplayObject>) => DisplayObject;
   handler: RenderHandler;
 }
 
@@ -51,19 +51,19 @@ export class SkiaRenderer implements IVectorRenderer {
 
     this.renderMappings = [
       {
-        klass: PIXI.Graphics,
-        handler: (skCanvas, node): void  => this.drawPixiGraphics(skCanvas, node as PIXI.Graphics),
+        klass: Graphics,
+        handler: (skCanvas, node): void  => this.drawPixiGraphics(skCanvas, node as Graphics),
       },
       {
-        klass: PIXI.Container,
-        handler: (skCanvas, node): void  => this.renderChildren(skCanvas, node as PIXI.Graphics),
+        klass: Container,
+        handler: (skCanvas, node): void  => this.renderChildren(skCanvas, node as Graphics),
       },
     ];
 
     this.shapeStrategies = [
       {
-        canDraw: (shape): boolean => shape instanceof PIXI.Rectangle,
-        draw: (skCanvas, shape: PIXI.Rectangle, paint, ck): void => {
+        canDraw: (shape): boolean => shape instanceof Rectangle,
+        draw: (skCanvas, shape: Rectangle, paint, ck): void => {
           skCanvas.drawRect(
             ck.LTRBRect(
               shape.x,
@@ -76,8 +76,8 @@ export class SkiaRenderer implements IVectorRenderer {
         },
       },
       {
-        canDraw: (shape): boolean => shape instanceof PIXI.Circle,
-        draw: (skCanvas, shape: PIXI.Circle, paint): void => {
+        canDraw: (shape): boolean => shape instanceof Circle,
+        draw: (skCanvas, shape: Circle, paint): void => {
           skCanvas.drawCircle(shape.x, shape.y, shape.radius, paint);
         },
       },
@@ -133,7 +133,7 @@ export class SkiaRenderer implements IVectorRenderer {
     const canvas = this.skiaSurface.getCanvas();
     canvas.clear(this.DEFAULT_BACKGROUND_COLOR);
 
-    const pixiContainer = rootContainer as PIXI.Container;
+    const pixiContainer = rootContainer as Container;
     if (typeof pixiContainer.updateTransform === 'function') {
       pixiContainer.updateTransform();
     }
@@ -142,7 +142,7 @@ export class SkiaRenderer implements IVectorRenderer {
     this.skiaSurface.flush();
   }
 
-  private renderNode(skCanvas: Canvas, node: PIXI.DisplayObject): void {
+  private renderNode(skCanvas: Canvas, node: DisplayObject): void {
     if (!node.visible || node.alpha <= 0) {
       return;
     }
@@ -159,7 +159,7 @@ export class SkiaRenderer implements IVectorRenderer {
     skCanvas.restore();
   }
 
-  private renderChildren(skCanvas: Canvas, container: PIXI.Container): void {
+  private renderChildren(skCanvas: Canvas, container: Container): void {
     if (container.children && container.children.length > 0) {
       for (const child of container.children) {
         this.renderNode(skCanvas, child);
@@ -169,7 +169,7 @@ export class SkiaRenderer implements IVectorRenderer {
 
   private drawPixiGraphics(
     skCanvas: Canvas,
-    pixiGraphics: PIXI.Graphics,
+    pixiGraphics: Graphics,
   ): void {
     const geometry = pixiGraphics.geometry;
     if (!geometry || !geometry.graphicsData) {
@@ -187,7 +187,7 @@ export class SkiaRenderer implements IVectorRenderer {
 
   private renderFill(
     skCanvas: Canvas,
-    graphics: PIXI.Graphics,
+    graphics: Graphics,
     data: IPixiGraphicsData,
   ): void {
     if (!data.fillStyle || !data.fillStyle.visible) {
@@ -210,7 +210,7 @@ export class SkiaRenderer implements IVectorRenderer {
 
   private renderStroke(
     skCanvas: Canvas,
-    graphics: PIXI.Graphics,
+    graphics: Graphics,
     data: IPixiGraphicsData,
   ): void {
     if (!data.lineStyle || !data.lineStyle.visible || data.lineStyle.width <= 0) {
@@ -283,7 +283,7 @@ export class SkiaRenderer implements IVectorRenderer {
     return canvas;
   }
 
-  private extractSkMatrix(transform: PIXI.Matrix): number[] {
+  private extractSkMatrix(transform: Matrix): number[] {
     return [
       transform.a,
       transform.c,

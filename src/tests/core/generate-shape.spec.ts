@@ -1,13 +1,13 @@
 import { GenerateShapeUseCase } from '@/core/use-cases/generate-shape.use-case';
-import * as PIXI from 'pixi.js-legacy';
+import {Container, Graphics} from 'pixi.js-legacy';
 
 describe('GenerateShapeUseCase (TDD/Unit)', () => {
   let useCase: GenerateShapeUseCase;
-  let mockContainer: PIXI.Container;
+  let mockContainer: Container;
 
   beforeEach(() => {
     useCase = new GenerateShapeUseCase();
-    mockContainer = new PIXI.Container();
+    mockContainer = new Container();
   });
 
   it('должен добавить ровно один дочерний элемент в контейнер', () => {
@@ -16,11 +16,11 @@ describe('GenerateShapeUseCase (TDD/Unit)', () => {
     expect(mockContainer.children.length).toBe(1);
   });
 
-  it('добавленный элемент должен быть графическим объектом (PIXI.Graphics)', () => {
+  it('добавленный элемент должен быть графическим объектом (Graphics)', () => {
     useCase.execute(mockContainer);
     const addedChild = mockContainer.children[0];
 
-    expect(addedChild).toBeInstanceOf(PIXI.Graphics);
+    expect(addedChild).toBeInstanceOf(Graphics);
   });
 
   it('фигуре должно быть присвоено имя для распознавания транслятором', () => {

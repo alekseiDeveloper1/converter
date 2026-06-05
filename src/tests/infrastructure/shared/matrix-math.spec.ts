@@ -1,15 +1,15 @@
-import * as PIXI from 'pixi.js-legacy';
+import {Container, Matrix} from 'pixi.js-legacy';
 
 describe('SkiaRenderer (Integration/Math)', () => {
   it('должен правильно преобразовать матрицу трансформации Pixi в формат Skia', () => {
-    const displayObject = new PIXI.Container();
+    const displayObject = new Container();
     displayObject.position.set(50, 100);
     displayObject.scale.set(2, 2);
     displayObject.transform.updateLocalTransform();
 
     const pixiMatrix = displayObject.transform.localTransform;
 
-    const convert = (matrix: PIXI.Matrix): number[] => [
+    const convert = (matrix: Matrix): number[] => [
       matrix.a,
       matrix.c,
       matrix.tx,

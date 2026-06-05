@@ -1,9 +1,9 @@
-import * as PIXI from 'pixi.js-legacy';
+import {Application, Container, Graphics} from 'pixi.js-legacy';
 
 export class PixiService {
   private readonly CANVAS_SIZE = 500;
-  private app: PIXI.Application | null = null;
-  private currentContainer: PIXI.Container | null = null;
+  private app: Application | null = null;
+  private currentContainer: Container | null = null;
 
   public async initialize(containerId: string): Promise<void> {
     const viewport = document.getElementById(containerId);
@@ -11,7 +11,7 @@ export class PixiService {
       throw new Error(`Не найден контейнер #${containerId}`);
     }
 
-    this.app = new PIXI.Application({
+    this.app = new Application({
       width: this.CANVAS_SIZE,
       height: this.CANVAS_SIZE,
       backgroundColor: 0xffffff,
@@ -20,7 +20,7 @@ export class PixiService {
 
     viewport.appendChild(this.app.view as HTMLCanvasElement);
 
-    this.currentContainer = new PIXI.Container();
+    this.currentContainer = new Container();
     this.app.stage.addChild(this.currentContainer);
 
     this.createTransformedGroup();
@@ -30,20 +30,20 @@ export class PixiService {
     this.createAndAddSprite();
   }
 
-  public getRootContainer(): PIXI.Container {
+  public getRootContainer(): Container {
     if (!this.currentContainer) {
-      throw new Error('PixiService не инициализирован');
+      throw new Error('ervice не инициализирован');
     }
     return this.currentContainer;
   }
 
   private createTransformedGroup(): void {
-    const transformGroup = new PIXI.Container();
+    const transformGroup = new Container();
     transformGroup.position.set(250, 250);
     transformGroup.rotation = 30 * (Math.PI / 180);
     transformGroup.scale.set(1.2, 0.8);
 
-    const innerRect = new PIXI.Graphics();
+    const innerRect = new Graphics();
     innerRect.beginFill(0x9933ff);
     innerRect.drawRect(-75, -75, 150, 150);
     innerRect.endFill();
@@ -53,7 +53,7 @@ export class PixiService {
   }
 
   private createPathGraphics(): void {
-    const pathGraphics = new PIXI.Graphics();
+    const pathGraphics = new Graphics();
 
     pathGraphics.lineStyle(6, 0x00cc99, 1);
     pathGraphics.beginFill(0x333333, 0.8);
@@ -72,7 +72,7 @@ export class PixiService {
   }
 
   private createAndAddSprite(): void {
-    const vectorSprite = new PIXI.Graphics();
+    const vectorSprite = new Graphics();
 
     vectorSprite.position.set(400, 100);
     vectorSprite.scale.set(1.5, 1.5);
@@ -123,12 +123,12 @@ export class PixiService {
   }
 
   private createBasicShapes(): void {
-    const rect = new PIXI.Graphics();
+    const rect = new Graphics();
     rect.beginFill(0x0066cc, 1);
     rect.drawRect(120, 120, 160, 160);
     rect.endFill();
 
-    const circle = new PIXI.Graphics();
+    const circle = new Graphics();
     circle.beginFill(0xff3333, 0.5);
     circle.drawCircle(220, 220, 70);
     circle.endFill();
