@@ -1,5 +1,5 @@
-import { GenerateShapeUseCase } from '@/core/use-cases/generate-shape.use-case';
-import {Container, Graphics} from 'pixi.js-legacy';
+import { GenerateShapeUseCase, ShapeName } from '@/core/use-cases/generate-shape.use-case';
+import { Container, Graphics } from 'pixi.js-legacy';
 
 describe('GenerateShapeUseCase (TDD/Unit)', () => {
   let useCase: GenerateShapeUseCase;
@@ -23,10 +23,18 @@ describe('GenerateShapeUseCase (TDD/Unit)', () => {
     expect(addedChild).toBeInstanceOf(Graphics);
   });
 
-  it('фигуре должно быть присвоено имя для распознавания транслятором', () => {
-    useCase.execute(mockContainer);
-    const addedChild = mockContainer.children[0];
+  it('фигуре должно быть присвоено корректное имя для распознавания транслятором', () => {
+    const useCase = new GenerateShapeUseCase();
+    const mockContainer = new Container();
 
-    expect(addedChild.name).toBe('graphics_rect');
+    useCase.execute(mockContainer);
+
+    const [addedChild] = mockContainer.children;
+    if (!addedChild) {
+      throw new Error('Фигура не была добавлена в контейнер');
+    }
+    const validNames = Object.values(ShapeName);
+
+    expect(validNames).toContain(addedChild.name);
   });
 });

@@ -1,35 +1,43 @@
 import {type Container, Graphics} from 'pixi.js-legacy';
 
+export const ShapeName = {
+  RECT: 'graphics_rect',
+  CIRCLE: 'graphics_circle',
+  TRIANGLE: 'graphics_triangle',
+  LINE: 'graphics_line',
+} as const;
+
+export type ShapeNameType = typeof ShapeName[keyof typeof ShapeName];
+
 export class GenerateShapeUseCase {
   private readonly MAX_HEX_COLOR = 16777215;
+  private static readonly SHAPE_TYPES: readonly ShapeNameType[] = Object.values(ShapeName);
 
   public execute(targetContainer: Container): void {
     const graphics = new Graphics();
     const randomColor = Math.floor(Math.random() * this.MAX_HEX_COLOR);
 
-    const shapeType = Math.floor(Math.random() * 4);
+    const shapeIndex = Math.floor(Math.random() * GenerateShapeUseCase.SHAPE_TYPES.length);
+    const chosenShape = GenerateShapeUseCase.SHAPE_TYPES[shapeIndex];
 
-    if (shapeType === 3) {
+    if (chosenShape === ShapeName.LINE) {
       graphics.lineStyle(2 + Math.random() * 8, randomColor);
       this.drawRandomLine(graphics);
-      graphics.name = 'graphics_line';
     } else {
       graphics.beginFill(randomColor);
 
-      if (shapeType === 0) {
+      if (chosenShape === ShapeName.RECT) {
         this.drawRandomRect(graphics);
-        graphics.name = 'graphics_rect';
-      } else if (shapeType === 1) {
+      } else if (chosenShape === ShapeName.CIRCLE) {
         this.drawRandomCircle(graphics);
-        graphics.name = 'graphics_circle';
-      } else {
+      } else if (chosenShape === ShapeName.TRIANGLE) {
         this.drawRandomTriangle(graphics);
-        graphics.name = 'graphics_triangle';
       }
 
       graphics.endFill();
     }
 
+    graphics.name = chosenShape;
     targetContainer.addChild(graphics);
   }
 
