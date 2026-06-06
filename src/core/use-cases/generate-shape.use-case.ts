@@ -42,6 +42,8 @@ export class GenerateShapeUseCase {
 
     graphics.name = chosenShape;
     targetContainer.addChild(graphics);
+
+    graphics.calculateBounds();
   }
 
   private drawRandomRect(g: Graphics): void {

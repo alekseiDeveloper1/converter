@@ -22,7 +22,7 @@ class Application {
   private async init(): Promise<void> {
     try {
       this.canvasKit = await CanvasKitInit({
-        locateFile: (file: string) => `/${file}`,
+        locateFile: (file: string) => `${import.meta.env.BASE_URL}${file}`,
       });
 
       if (!this.canvasKit) {

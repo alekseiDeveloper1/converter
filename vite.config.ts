@@ -4,7 +4,9 @@ import { defineConfig } from 'vite';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
+export default defineConfig(({ command }) => {
+  return {
+  base: command === 'build' ? '/converter/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(rootDir, 'src'),
@@ -22,4 +24,4 @@ export default defineConfig({
       },
     },
   },
-});
+}});
