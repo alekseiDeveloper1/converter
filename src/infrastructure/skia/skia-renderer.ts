@@ -1,5 +1,12 @@
 import type { IVectorRenderer } from '@/core/interfaces/i-vector-renderer';
-import {Circle, Container, type DisplayObject, Graphics, type Matrix, Rectangle} from 'pixi.js-legacy';
+import {
+  Circle,
+  Container,
+  type DisplayObject,
+  Graphics,
+  type Matrix,
+  Rectangle,
+} from 'pixi.js-legacy';
 
 interface IPixiFillStyle {
   visible: boolean;
@@ -20,10 +27,16 @@ interface IPixiGraphicsData {
   lineStyle: IPixiLineStyle;
 }
 
-type RenderHandler = (skCanvas: Canvas, node: DisplayObject) => void;
+type RenderHandler = (
+  skCanvas: Canvas,
+  node: DisplayObject,
+  accumulatedAlpha: number,
+) => void;
 
 interface IRenderMapping {
-  klass: new (...args: ConstructorParameters<typeof DisplayObject>) => DisplayObject;
+  klass: new (
+    ...args: ConstructorParameters<typeof DisplayObject>
+  ) => DisplayObject;
   handler: RenderHandler;
 }
 
@@ -52,11 +65,13 @@ export class SkiaRenderer implements IVectorRenderer {
     this.renderMappings = [
       {
         klass: Graphics,
-        handler: (skCanvas, node): void  => this.drawPixiGraphics(skCanvas, node as Graphics),
+        handler: (skCanvas, node, accumulatedAlpha): void =>
+          this.drawPixiGraphics(skCanvas, node as Graphics, accumulatedAlpha),
       },
       {
         klass: Container,
-        handler: (skCanvas, node): void  => this.renderChildren(skCanvas, node as Graphics),
+        handler: (skCanvas, node, accumulatedAlpha): void =>
+          this.renderChildren(skCanvas, node as Container, accumulatedAlpha),
       },
     ];
 
@@ -138,11 +153,15 @@ export class SkiaRenderer implements IVectorRenderer {
       pixiContainer.updateTransform();
     }
 
-    this.renderNode(canvas, pixiContainer);
+    this.renderNode(canvas, pixiContainer, 1.0);
     this.skiaSurface.flush();
   }
 
-  private renderNode(skCanvas: Canvas, node: DisplayObject): void {
+  private renderNode(
+    skCanvas: Canvas,
+    node: DisplayObject,
+    accumulatedAlpha = 1.0,
+  ): void {
     if (!node.visible || node.alpha <= 0) {
       return;
     }
@@ -150,19 +169,25 @@ export class SkiaRenderer implements IVectorRenderer {
     skCanvas.save();
     skCanvas.concat(this.extractSkMatrix(node.transform.localTransform));
 
+    const currentAlpha = accumulatedAlpha * node.alpha;
+
     const mapping = this.renderMappings.find((m) => node instanceof m.klass);
 
     if (mapping) {
-      mapping.handler(skCanvas, node);
+      mapping.handler(skCanvas, node, currentAlpha);
     }
 
     skCanvas.restore();
   }
 
-  private renderChildren(skCanvas: Canvas, container: Container): void {
+  private renderChildren(
+    skCanvas: Canvas,
+    container: Container,
+    accumulatedAlpha: number,
+  ): void {
     if (container.children && container.children.length > 0) {
       for (const child of container.children) {
-        this.renderNode(skCanvas, child);
+        this.renderNode(skCanvas, child, accumulatedAlpha);
       }
     }
   }
@@ -170,6 +195,7 @@ export class SkiaRenderer implements IVectorRenderer {
   private drawPixiGraphics(
     skCanvas: Canvas,
     pixiGraphics: Graphics,
+    accumulatedAlpha: number,
   ): void {
     const geometry = pixiGraphics.geometry;
     if (!geometry || !geometry.graphicsData) {
@@ -178,17 +204,17 @@ export class SkiaRenderer implements IVectorRenderer {
 
     const graphicsDataList = geometry.graphicsData as IPixiGraphicsData[];
     for (const graphicsData of graphicsDataList) {
-      this.renderFill(skCanvas, pixiGraphics, graphicsData);
-      this.renderStroke(skCanvas, pixiGraphics, graphicsData);
+      this.renderFill(skCanvas, graphicsData, accumulatedAlpha);
+      this.renderStroke(skCanvas, graphicsData, accumulatedAlpha);
     }
 
-    this.renderChildren(skCanvas, pixiGraphics);
+    this.renderChildren(skCanvas, pixiGraphics, accumulatedAlpha);
   }
 
   private renderFill(
     skCanvas: Canvas,
-    graphics: Graphics,
     data: IPixiGraphicsData,
+    accumulatedAlpha: number,
   ): void {
     if (!data.fillStyle || !data.fillStyle.visible) {
       return;
@@ -200,7 +226,7 @@ export class SkiaRenderer implements IVectorRenderer {
     paint.setColor(
       this.hexToSkColor(
         data.fillStyle.color,
-        data.fillStyle.alpha * graphics.alpha,
+        data.fillStyle.alpha * accumulatedAlpha,
       ),
     );
 
@@ -210,10 +236,14 @@ export class SkiaRenderer implements IVectorRenderer {
 
   private renderStroke(
     skCanvas: Canvas,
-    graphics: Graphics,
     data: IPixiGraphicsData,
+    accumulatedAlpha: number,
   ): void {
-    if (!data.lineStyle || !data.lineStyle.visible || data.lineStyle.width <= 0) {
+    if (
+      !data.lineStyle ||
+      !data.lineStyle.visible ||
+      data.lineStyle.width <= 0
+    ) {
       return;
     }
 
@@ -224,7 +254,7 @@ export class SkiaRenderer implements IVectorRenderer {
     paint.setColor(
       this.hexToSkColor(
         data.lineStyle.color,
-        data.lineStyle.alpha * graphics.alpha,
+        data.lineStyle.alpha * accumulatedAlpha,
       ),
     );
     paint.setStrokeCap(this.canvasKit.StrokeCap.Round);

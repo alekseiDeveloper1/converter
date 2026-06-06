@@ -1,4 +1,4 @@
-import {Container, Matrix} from 'pixi.js-legacy';
+import { Container, Matrix } from 'pixi.js-legacy';
 
 describe('SkiaRenderer (Integration/Math)', () => {
   it('должен правильно преобразовать матрицу трансформации Pixi в формат Skia', () => {

@@ -1,4 +1,7 @@
-import { GenerateShapeUseCase, ShapeName } from '@/core/use-cases/generate-shape.use-case';
+import {
+  GenerateShapeUseCase,
+  ShapeName,
+} from '@/core/use-cases/generate-shape.use-case';
 import { Container, Graphics } from 'pixi.js-legacy';
 
 describe('GenerateShapeUseCase (TDD/Unit)', () => {

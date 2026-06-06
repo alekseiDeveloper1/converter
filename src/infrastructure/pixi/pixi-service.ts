@@ -1,4 +1,4 @@
-import {Application, Container, Graphics} from 'pixi.js-legacy';
+import { Application, Container, Graphics } from 'pixi.js-legacy';
 
 export class PixiService {
   private readonly CANVAS_SIZE = 500;
@@ -53,22 +53,24 @@ export class PixiService {
   }
 
   private createPathGraphics(): void {
-    const pathGraphics = new Graphics();
+    const rectGraphics = new Graphics();
+    rectGraphics.name = 'gray_rect';
+    rectGraphics.lineStyle(6, 0x00cc99, 1);
+    rectGraphics.beginFill(0x333333, 0.8);
+    rectGraphics.drawRect(30, 30, 120, 80);
+    rectGraphics.endFill();
+    this.currentContainer?.addChild(rectGraphics);
 
-    pathGraphics.lineStyle(6, 0x00cc99, 1);
-    pathGraphics.beginFill(0x333333, 0.8);
-    pathGraphics.drawRect(30, 30, 120, 80);
-    pathGraphics.endFill();
-
-    pathGraphics.lineStyle(4, 0xff9900, 1);
-    pathGraphics.beginFill(0xffcc00, 1);
-    pathGraphics.moveTo(50, 400);
-    pathGraphics.lineTo(150, 300);
-    pathGraphics.lineTo(250, 400);
-    pathGraphics.closePath();
-    pathGraphics.endFill();
-
-    this.currentContainer?.addChild(pathGraphics);
+    const triangleGraphics = new Graphics();
+    triangleGraphics.name = 'yellow_triangle';
+    triangleGraphics.lineStyle(4, 0xff9900, 1);
+    triangleGraphics.beginFill(0xffcc00, 1);
+    triangleGraphics.moveTo(50, 400);
+    triangleGraphics.lineTo(150, 300);
+    triangleGraphics.lineTo(250, 400);
+    triangleGraphics.closePath();
+    triangleGraphics.endFill();
+    this.currentContainer?.addChild(triangleGraphics);
   }
 
   private createAndAddSprite(): void {
@@ -135,5 +137,12 @@ export class PixiService {
 
     this.currentContainer?.addChild(rect);
     this.currentContainer?.addChild(circle);
+  }
+
+  public getApp(): Application {
+    if (!this.app) {
+      throw new Error('PixiService не инициализирован');
+    }
+    return this.app;
   }
 }

@@ -1,4 +1,4 @@
-import {type Container, Graphics} from 'pixi.js-legacy';
+import { type Container, Graphics } from 'pixi.js-legacy';
 
 export const ShapeName = {
   RECT: 'graphics_rect',
@@ -7,17 +7,20 @@ export const ShapeName = {
   LINE: 'graphics_line',
 } as const;
 
-export type ShapeNameType = typeof ShapeName[keyof typeof ShapeName];
+export type ShapeNameType = (typeof ShapeName)[keyof typeof ShapeName];
 
 export class GenerateShapeUseCase {
   private readonly MAX_HEX_COLOR = 16777215;
-  private static readonly SHAPE_TYPES: readonly ShapeNameType[] = Object.values(ShapeName);
+  private static readonly SHAPE_TYPES: readonly ShapeNameType[] =
+    Object.values(ShapeName);
 
   public execute(targetContainer: Container): void {
     const graphics = new Graphics();
     const randomColor = Math.floor(Math.random() * this.MAX_HEX_COLOR);
 
-    const shapeIndex = Math.floor(Math.random() * GenerateShapeUseCase.SHAPE_TYPES.length);
+    const shapeIndex = Math.floor(
+      Math.random() * GenerateShapeUseCase.SHAPE_TYPES.length,
+    );
     const chosenShape = GenerateShapeUseCase.SHAPE_TYPES[shapeIndex];
 
     if (chosenShape === ShapeName.LINE) {
