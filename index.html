@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/converter/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>converter</title>
+    <script type="module" crossorigin src="/converter/assets/index-BEMHNcGi.js"></script>
+    <link rel="modulepreload" crossorigin href="/converter/assets/vendor-D06wVXSl.js">
+    <link rel="stylesheet" crossorigin href="/converter/assets/index-B5E2COZO.css">
+  </head>
+  <body>
+    <div id="app">
+      <header class="control-panel">
+        <h1>Pixi & Skia Bridge</h1>
+        <div class="actions">
+          <button id="btn-generate">Сгенерировать фигуру</button>
+          <button id="btn-export" class="primary">Экспорт в PDF</button>
+        </div>
+      </header>
+
+      <main class="viewer-container">
+        <div class="canvas-box">
+          <h2>Pixi.js Canvas (Источник)</h2>
+          <div id="pixi-viewport"></div>
+        </div>
+
+        <div class="canvas-box">
+          <h2>Skia Canvas (Результат рендера)</h2>
+          <div id="skia-viewport"></div>
+        </div>
+      </main>
+    </div>
+    <script src="/converter/canvaskit.js"></script>
+  </body>
+</html>
