@@ -1,4 +1,4 @@
-import { PixiService } from '@/infrastructure/pixi/pixi-service';
+import type { IPixiService } from '@/core/interfaces/i-pixi-service.ts';
 
 export interface CanvasViewCallbacks {
   onSkiaMouseDown: (coords: { x: number; y: number }) => void;
@@ -8,10 +8,10 @@ export interface CanvasViewCallbacks {
 export class CanvasView {
   private skiaCanvas: HTMLCanvasElement | null = null;
 
-  private pixiService: PixiService;
+  private pixiService: IPixiService;
   private callbacks: CanvasViewCallbacks;
 
-  constructor(pixiService: PixiService, callbacks: CanvasViewCallbacks) {
+  constructor(pixiService: IPixiService, callbacks: CanvasViewCallbacks) {
     this.pixiService = pixiService;
     this.callbacks = callbacks;
 

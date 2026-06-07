@@ -1,17 +1,18 @@
-import { PixiService } from '../infrastructure/pixi/pixi-service';
 import { GenerateShapeUseCase } from '../core/use-cases/generate-shape.use-case';
 import { ControlPanel } from './components/control-panel';
 import { CanvasView } from './components/canvas-view';
 import type { IVectorRenderer } from '@/core/interfaces/i-vector-renderer.ts';
 import type { IPdfExporter } from '@/core/interfaces/i-pdf-exporter.ts';
+import type { IPixiService } from '@/core/interfaces/i-pixi-service.ts';
+import type { Container } from 'pixi.js-legacy';
 
 export class UIController {
-  private readonly pixiService: PixiService;
+  private readonly pixiService: IPixiService;
   private skiaRenderer: IVectorRenderer & IPdfExporter;
   private generateShapeUseCase: GenerateShapeUseCase;
 
   constructor(
-    pixiService: PixiService,
+    pixiService: IPixiService,
     skiaRenderer: IVectorRenderer & IPdfExporter,
     generateShapeUseCase: GenerateShapeUseCase,
   ) {
@@ -37,7 +38,7 @@ export class UIController {
   }
 
   private handleGenerate(): void {
-    const pixiRoot = this.pixiService.getRootContainer();
+    const pixiRoot = this.pixiService.getRootContainer() as Container;
 
     this.generateShapeUseCase.execute(pixiRoot);
 

@@ -166,49 +166,6 @@ export class SkiaRenderer implements IVectorRenderer, IPdfExporter {
     this.skiaSurface.flush();
   }
 
-  public exportToPdf(rootContainer: unknown): void {
-    if (!this.canvasKit) {
-      console.error(
-        '[SkiaRenderer] Экспорт невозможен: CanvasKit не инициализирован.',
-      );
-      return;
-    }
-
-    const pixiContainer = rootContainer as Container;
-
-    const base64Str = this.canvasKit.GeneratePDFBase64(
-      this.CANVAS_SIZE,
-      this.CANVAS_SIZE,
-      (pdfCanvas: Canvas) => {
-        this.renderNode(pdfCanvas, pixiContainer, 1.0);
-      },
-    );
-
-    try {
-      const binaryString = window.atob(base64Str);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'vector_scene.pdf';
-      link.click();
-
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(
-        '[SkiaRenderer] Критическая ошибка при сборке PDF файла:',
-        err,
-      );
-    }
-  }
-
   private renderNode(
     skCanvas: Canvas,
     node: DisplayObject,
@@ -230,18 +187,6 @@ export class SkiaRenderer implements IVectorRenderer, IPdfExporter {
     }
 
     skCanvas.restore();
-  }
-
-  private renderChildren(
-    skCanvas: Canvas,
-    container: Container,
-    accumulatedAlpha: number,
-  ): void {
-    if (container.children && container.children.length > 0) {
-      for (const child of container.children) {
-        this.renderNode(skCanvas, child, accumulatedAlpha);
-      }
-    }
   }
 
   private drawPixiGraphics(
@@ -324,6 +269,18 @@ export class SkiaRenderer implements IVectorRenderer, IPdfExporter {
     }
   }
 
+  private renderChildren(
+    skCanvas: Canvas,
+    container: Container,
+    accumulatedAlpha: number,
+  ): void {
+    if (container.children && container.children.length > 0) {
+      for (const child of container.children) {
+        this.renderNode(skCanvas, child, accumulatedAlpha);
+      }
+    }
+  }
+
   private drawComplexPath(
     skCanvas: Canvas,
     points: number[],
@@ -384,5 +341,49 @@ export class SkiaRenderer implements IVectorRenderer, IPdfExporter {
     const g = ((hexColor >> 8) & 0xff) / 255;
     const b = (hexColor & 0xff) / 255;
     return this.canvasKit.Color4f(r, g, b, alpha);
+  }
+
+  public async exportToPdf(rootContainer: unknown): Promise<void> {
+    if (!this.canvasKit) {
+      console.error(
+        '[SkiaRenderer] Экспорт невозможен: CanvasKit не инициализирован.',
+      );
+      return;
+    }
+
+    try {
+      const base64Str = this.generatePdfData(rootContainer as Container);
+      const blob = await this.base64ToBlob(base64Str);
+      this.downloadFile(blob, 'vector_scene.pdf');
+    } catch (err) {
+      console.error(
+        '[SkiaRenderer] Критическая ошибка при сборке PDF файла:',
+        err,
+      );
+    }
+  }
+
+  private generatePdfData(container: Container): string {
+    return this.canvasKit?.GeneratePDFBase64(
+      this.CANVAS_SIZE,
+      this.CANVAS_SIZE,
+      (pdfCanvas: Canvas) => {
+        this.renderNode(pdfCanvas, container, 1.0);
+      },
+    );
+  }
+
+  private async base64ToBlob(base64Str: string): Promise<Blob> {
+    const response = await fetch(`data:application/pdf;base64,${base64Str}`);
+    return response.blob();
+  }
+
+  private downloadFile(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 }

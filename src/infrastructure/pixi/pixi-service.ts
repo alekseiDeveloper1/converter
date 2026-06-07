@@ -1,17 +1,24 @@
 import {
   Application,
   Container,
+  Graphics,
   type DisplayObject,
   FederatedPointerEvent,
-  Graphics,
+  Polygon,
+  Matrix,
+  Point,
+  type GraphicsData,
 } from 'pixi.js-legacy';
+import type { IPixiService } from '@/core/interfaces/i-pixi-service.ts';
 
-export class PixiService {
+export class PixiService implements IPixiService {
   private readonly CANVAS_SIZE = 500;
   private app: Application | null = null;
   private currentContainer: Container | null = null;
   private onStateChangeCallback: (() => void) | null = null;
   private clickedTarget: DisplayObject | null = null;
+  private readonly _tempMatrix = new Matrix();
+  private readonly _tempPoint = new Point();
 
   public async initialize(
     containerId: string,
@@ -194,43 +201,109 @@ export class PixiService {
 
   public findHitTarget(
     node: DisplayObject,
-    x: number,
-    y: number,
+    globalX: number,
+    globalY: number,
   ): DisplayObject | null {
-    if (!node.visible || node.alpha <= 0) {
+    if (!this.isVisible(node)) {
       return null;
     }
 
-    const localMatrix = node.transform.localTransform;
-    const invertedMatrix = localMatrix.clone().invert();
-    const localPoint = invertedMatrix.apply({ x, y });
-
     if (node instanceof Container && node.children.length > 0) {
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        const hit = this.findHitTarget(
-          node.children[i],
-          localPoint.x,
-          localPoint.y,
-        );
-        if (hit) {
-          return hit;
-        }
+      const hit = this.checkChildrenHit(node.children, globalX, globalY);
+      if (hit) {
+        return hit;
       }
     }
 
-    if (node instanceof Graphics) {
-      const bounds = node.getLocalBounds();
-      if (
-        localPoint.x >= bounds.x &&
-        localPoint.x <= bounds.x + bounds.width &&
-        localPoint.y >= bounds.y &&
-        localPoint.y <= bounds.y + bounds.height
-      ) {
-        return node;
-      }
+    if (this.isPointInside(node, globalX, globalY)) {
+      return node;
     }
 
     return null;
+  }
+
+  private isVisible(node: DisplayObject): boolean {
+    return node.visible && node.alpha > 0;
+  }
+
+  private checkChildrenHit(
+    children: DisplayObject[],
+    globalX: number,
+    globalY: number,
+  ): DisplayObject | null {
+    for (let i = children.length - 1; i >= 0; i--) {
+      const hit = this.findHitTarget(children[i], globalX, globalY);
+      if (hit) {
+        return hit;
+      }
+    }
+    return null;
+  }
+
+  private isPointInside(
+    node: DisplayObject,
+    globalX: number,
+    globalY: number,
+  ): boolean {
+    if (node instanceof Graphics && node.name === 'yellow_triangle') {
+      if (node.geometry?.graphicsData) {
+        const invertedWorld = node.transform.worldTransform
+          .copyTo(this._tempMatrix)
+          .invert();
+        const localPoint = invertedWorld.apply(
+          { x: globalX, y: globalY },
+          this._tempPoint,
+        );
+        return this.checkTriangleGeometry(
+          node.geometry.graphicsData,
+          localPoint.x,
+          localPoint.y,
+        );
+      }
+      return false;
+    }
+
+    if (
+      'containsPoint' in node &&
+      typeof (node as Graphics).containsPoint === 'function'
+    ) {
+      return (node as Graphics).containsPoint({ x: globalX, y: globalY });
+    }
+
+    return false;
+  }
+
+  private checkTriangleGeometry(
+    graphicsData: GraphicsData[],
+    pX: number,
+    pY: number,
+  ): boolean {
+    for (const data of graphicsData) {
+      const shape = data.shape;
+      if (
+        shape instanceof Polygon &&
+        shape.points &&
+        shape.points.length >= 6
+      ) {
+        if (this.isPointInTriangle(pX, pY, shape.points)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private isPointInTriangle(pX: number, pY: number, pts: number[]): boolean {
+    const [x1, y1, x2, y2, x3, y3] = pts;
+
+    const d1 = (pX - x2) * (y1 - y2) - (x1 - x2) * (pY - y2);
+    const d2 = (pX - x3) * (y2 - y3) - (x2 - x3) * (pY - y3);
+    const d3 = (pX - x1) * (y3 - y1) - (x3 - x1) * (pY - y1);
+
+    const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
+    const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
+
+    return !(hasNeg && hasPos);
   }
 
   public dispatchSkiaEvent(
@@ -271,12 +344,5 @@ export class PixiService {
         this.clickedTarget = null;
       }
     }
-  }
-
-  public getApp(): Application {
-    if (!this.app) {
-      throw new Error('PixiService не инициализирован');
-    }
-    return this.app;
   }
 }
