@@ -1,11 +1,24 @@
-import { Application, Container, Graphics } from 'pixi.js-legacy';
+import {
+  Application,
+  Container,
+  type DisplayObject,
+  FederatedPointerEvent,
+  Graphics,
+} from 'pixi.js-legacy';
 
 export class PixiService {
   private readonly CANVAS_SIZE = 500;
   private app: Application | null = null;
   private currentContainer: Container | null = null;
+  private onStateChangeCallback: (() => void) | null = null;
+  private clickedTarget: DisplayObject | null = null;
 
-  public async initialize(containerId: string): Promise<void> {
+  public async initialize(
+    containerId: string,
+    onStateChange: () => void,
+  ): Promise<void> {
+    this.onStateChangeCallback = onStateChange;
+
     const viewport = document.getElementById(containerId);
     if (!viewport) {
       throw new Error(`Не найден контейнер #${containerId}`);
@@ -28,6 +41,46 @@ export class PixiService {
     this.createBasicShapes();
 
     this.createAndAddSprite();
+
+    this.setupInitialInteractivity();
+  }
+
+  public setupInitialInteractivity(): void {
+    if (!this.currentContainer) {
+      return;
+    }
+
+    const activate = (node: DisplayObject): void => {
+      this.makeObjectInteractive(node);
+      if (node instanceof Container && node.children.length > 0) {
+        node.children.forEach(activate);
+      }
+    };
+
+    this.currentContainer.children.forEach(activate);
+  }
+
+  public makeObjectInteractive(node: DisplayObject): void {
+    node.eventMode = 'static';
+    node.cursor = 'pointer';
+
+    node.on('pointerdown', (event) => {
+      node.alpha = 0.5;
+      if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
+      this.onStateChangeCallback?.();
+    });
+
+    node.on('pointerup', () => {
+      node.alpha = 1.0;
+      this.onStateChangeCallback?.();
+    });
+
+    node.on('pointerupoutside', () => {
+      node.alpha = 1.0;
+      this.onStateChangeCallback?.();
+    });
   }
 
   public getRootContainer(): Container {
@@ -137,6 +190,87 @@ export class PixiService {
 
     this.currentContainer?.addChild(rect);
     this.currentContainer?.addChild(circle);
+  }
+
+  public findHitTarget(
+    node: DisplayObject,
+    x: number,
+    y: number,
+  ): DisplayObject | null {
+    if (!node.visible || node.alpha <= 0) {
+      return null;
+    }
+
+    const localMatrix = node.transform.localTransform;
+    const invertedMatrix = localMatrix.clone().invert();
+    const localPoint = invertedMatrix.apply({ x, y });
+
+    if (node instanceof Container && node.children.length > 0) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const hit = this.findHitTarget(
+          node.children[i],
+          localPoint.x,
+          localPoint.y,
+        );
+        if (hit) {
+          return hit;
+        }
+      }
+    }
+
+    if (node instanceof Graphics) {
+      const bounds = node.getLocalBounds();
+      if (
+        localPoint.x >= bounds.x &&
+        localPoint.x <= bounds.x + bounds.width &&
+        localPoint.y >= bounds.y &&
+        localPoint.y <= bounds.y + bounds.height
+      ) {
+        return node;
+      }
+    }
+
+    return null;
+  }
+
+  public dispatchSkiaEvent(
+    coords: { x: number; y: number },
+    pixiEventType: 'pointerdown' | 'pointerup',
+  ): void {
+    if (!this.app || !this.currentContainer) {
+      return;
+    }
+
+    const hitTarget = this.findHitTarget(
+      this.currentContainer,
+      coords.x,
+      coords.y,
+    );
+
+    if (pixiEventType === 'pointerdown') {
+      if (hitTarget) {
+        this.clickedTarget = hitTarget;
+
+        const federatedEvent = new FederatedPointerEvent(
+          this.app.renderer.events.rootBoundary,
+        );
+        federatedEvent.type = 'pointerdown';
+        federatedEvent.target = hitTarget;
+
+        hitTarget.dispatchEvent(federatedEvent);
+      }
+    } else if (pixiEventType === 'pointerup') {
+      if (this.clickedTarget) {
+        const federatedEvent = new FederatedPointerEvent(
+          this.app.renderer.events.rootBoundary,
+        );
+        federatedEvent.type = 'pointerup';
+        federatedEvent.target = this.clickedTarget;
+
+        this.clickedTarget.dispatchEvent(federatedEvent);
+        this.clickedTarget = null;
+      }
+    }
   }
 
   public getApp(): Application {

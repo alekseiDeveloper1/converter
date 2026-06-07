@@ -7,6 +7,7 @@ import {
   type Matrix,
   Rectangle,
 } from 'pixi.js-legacy';
+import type { IPdfExporter } from '@/core/interfaces/i-pdf-exporter.ts';
 
 interface IPixiFillStyle {
   visible: boolean;
@@ -50,18 +51,15 @@ interface IShapeStrategy {
   ): void;
 }
 
-export class SkiaRenderer implements IVectorRenderer {
-  private readonly DEFAULT_BACKGROUND_COLOR: Float32Array;
+export class SkiaRenderer implements IVectorRenderer, IPdfExporter {
+  private canvasKit: CanvasKit | null = null;
+  private DEFAULT_BACKGROUND_COLOR: Float32Array | null = null;
   private readonly CANVAS_SIZE = 500;
   private skiaSurface: Surface | null = null;
-  private readonly canvasKit: CanvasKit;
   private readonly renderMappings: IRenderMapping[];
   private readonly shapeStrategies: IShapeStrategy[];
 
-  constructor(canvasKit: CanvasKit) {
-    this.canvasKit = canvasKit;
-    this.DEFAULT_BACKGROUND_COLOR = this.canvasKit.Color(240, 240, 240, 1.0);
-
+  constructor() {
     this.renderMappings = [
       {
         klass: Graphics,
@@ -121,6 +119,17 @@ export class SkiaRenderer implements IVectorRenderer {
       throw new Error(`Не найден контейнер #${canvasContainerId}`);
     }
 
+    this.canvasKit = await CanvasKitInit({
+      locateFile: (file: string) => `${import.meta.env.BASE_URL}${file}`,
+    });
+
+    if (!this.canvasKit) {
+      console.error(
+        '[App] Критическая ошибка: Не удалось загрузить бинарный файл CanvasKit WASM.',
+      );
+    }
+
+    this.DEFAULT_BACKGROUND_COLOR = this.canvasKit.Color(240, 240, 240, 1.0);
     const canvasElement = this.createCanvasElement();
     viewport.appendChild(canvasElement);
 
@@ -155,6 +164,49 @@ export class SkiaRenderer implements IVectorRenderer {
 
     this.renderNode(canvas, pixiContainer, 1.0);
     this.skiaSurface.flush();
+  }
+
+  public exportToPdf(rootContainer: unknown): void {
+    if (!this.canvasKit) {
+      console.error(
+        '[SkiaRenderer] Экспорт невозможен: CanvasKit не инициализирован.',
+      );
+      return;
+    }
+
+    const pixiContainer = rootContainer as Container;
+
+    const base64Str = this.canvasKit.GeneratePDFBase64(
+      this.CANVAS_SIZE,
+      this.CANVAS_SIZE,
+      (pdfCanvas: Canvas) => {
+        this.renderNode(pdfCanvas, pixiContainer, 1.0);
+      },
+    );
+
+    try {
+      const binaryString = window.atob(base64Str);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'vector_scene.pdf';
+      link.click();
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(
+        '[SkiaRenderer] Критическая ошибка при сборке PDF файла:',
+        err,
+      );
+    }
   }
 
   private renderNode(

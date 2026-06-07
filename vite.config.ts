@@ -6,22 +6,23 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ command }) => {
   return {
-  base: command === 'build' ? '/converter/' : '/',
-  resolve: {
-    alias: {
-      '@': path.resolve(rootDir, 'src'),
+    base: command === 'build' ? '/converter/' : '/',
+    resolve: {
+      alias: {
+        '@': path.resolve(rootDir, 'src'),
+      },
     },
-  },
-  build: {
-    chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
+    build: {
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              return 'vendor';
+            }
+          },
         },
       },
     },
-  },
-}});
+  };
+});
