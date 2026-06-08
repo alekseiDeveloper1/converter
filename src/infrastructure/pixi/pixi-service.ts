@@ -4,10 +4,7 @@ import {
   Graphics,
   type DisplayObject,
   FederatedPointerEvent,
-  Polygon,
-  Matrix,
-  Point,
-  type GraphicsData,
+  type EventBoundary,
 } from 'pixi.js-legacy';
 import type { IPixiService } from '@/core/interfaces/i-pixi-service.ts';
 
@@ -17,8 +14,6 @@ export class PixiService implements IPixiService {
   private currentContainer: Container | null = null;
   private onStateChangeCallback: (() => void) | null = null;
   private clickedTarget: DisplayObject | null = null;
-  private readonly _tempMatrix = new Matrix();
-  private readonly _tempPoint = new Point();
 
   public async initialize(
     containerId: string,
@@ -122,7 +117,7 @@ export class PixiService implements IPixiService {
     this.currentContainer?.addChild(rectGraphics);
 
     const triangleGraphics = new Graphics();
-    triangleGraphics.name = 'yellow_triangle';
+    triangleGraphics.name = 'graphics_triangle';
     triangleGraphics.lineStyle(4, 0xff9900, 1);
     triangleGraphics.beginFill(0xffcc00, 1);
     triangleGraphics.moveTo(50, 400);
@@ -199,6 +194,68 @@ export class PixiService implements IPixiService {
     this.currentContainer?.addChild(circle);
   }
 
+  public dispatchSkiaEvent(
+    coords: { x: number; y: number },
+    pixiEventType: 'pointerdown' | 'pointerup',
+  ): void {
+    if (!this.app || !this.currentContainer) {
+      return;
+    }
+
+    const rootBoundary = this.app.renderer?.events?.rootBoundary;
+    if (!rootBoundary) {
+      return;
+    }
+
+    if (pixiEventType === 'pointerdown') {
+      this.handlePointerDown(coords, rootBoundary);
+    } else if (pixiEventType === 'pointerup') {
+      this.handlePointerUp(rootBoundary);
+    }
+  }
+
+  private handlePointerDown(
+    coords: { x: number; y: number },
+    rootBoundary: EventBoundary,
+  ): void {
+    if (!this.currentContainer) {
+      return;
+    }
+    const hitTarget = this.findHitTarget(
+      this.currentContainer,
+      coords.x,
+      coords.y,
+    );
+    if (!hitTarget) {
+      return;
+    }
+
+    this.clickedTarget = hitTarget;
+    this.emitFederatedEvent(hitTarget, 'pointerdown', rootBoundary);
+  }
+
+  private handlePointerUp(rootBoundary: EventBoundary): void {
+    if (!this.clickedTarget) {
+      return;
+    }
+
+    this.emitFederatedEvent(this.clickedTarget, 'pointerup', rootBoundary);
+    this.clickedTarget = null;
+  }
+
+  private emitFederatedEvent(
+    target: DisplayObject,
+    type: 'pointerdown' | 'pointerup',
+    rootBoundary: EventBoundary,
+  ): void {
+    const event = Object.assign(new FederatedPointerEvent(rootBoundary), {
+      type,
+      target,
+    });
+
+    target.dispatchEvent(event);
+  }
+
   public findHitTarget(
     node: DisplayObject,
     globalX: number,
@@ -245,24 +302,6 @@ export class PixiService implements IPixiService {
     globalX: number,
     globalY: number,
   ): boolean {
-    if (node instanceof Graphics && node.name === 'yellow_triangle') {
-      if (node.geometry?.graphicsData) {
-        const invertedWorld = node.transform.worldTransform
-          .copyTo(this._tempMatrix)
-          .invert();
-        const localPoint = invertedWorld.apply(
-          { x: globalX, y: globalY },
-          this._tempPoint,
-        );
-        return this.checkTriangleGeometry(
-          node.geometry.graphicsData,
-          localPoint.x,
-          localPoint.y,
-        );
-      }
-      return false;
-    }
-
     if (
       'containsPoint' in node &&
       typeof (node as Graphics).containsPoint === 'function'
@@ -271,78 +310,5 @@ export class PixiService implements IPixiService {
     }
 
     return false;
-  }
-
-  private checkTriangleGeometry(
-    graphicsData: GraphicsData[],
-    pX: number,
-    pY: number,
-  ): boolean {
-    for (const data of graphicsData) {
-      const shape = data.shape;
-      if (
-        shape instanceof Polygon &&
-        shape.points &&
-        shape.points.length >= 6
-      ) {
-        if (this.isPointInTriangle(pX, pY, shape.points)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  private isPointInTriangle(pX: number, pY: number, pts: number[]): boolean {
-    const [x1, y1, x2, y2, x3, y3] = pts;
-
-    const d1 = (pX - x2) * (y1 - y2) - (x1 - x2) * (pY - y2);
-    const d2 = (pX - x3) * (y2 - y3) - (x2 - x3) * (pY - y3);
-    const d3 = (pX - x1) * (y3 - y1) - (x3 - x1) * (pY - y1);
-
-    const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-    const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-
-    return !(hasNeg && hasPos);
-  }
-
-  public dispatchSkiaEvent(
-    coords: { x: number; y: number },
-    pixiEventType: 'pointerdown' | 'pointerup',
-  ): void {
-    if (!this.app || !this.currentContainer) {
-      return;
-    }
-
-    const hitTarget = this.findHitTarget(
-      this.currentContainer,
-      coords.x,
-      coords.y,
-    );
-
-    if (pixiEventType === 'pointerdown') {
-      if (hitTarget) {
-        this.clickedTarget = hitTarget;
-
-        const federatedEvent = new FederatedPointerEvent(
-          this.app.renderer.events.rootBoundary,
-        );
-        federatedEvent.type = 'pointerdown';
-        federatedEvent.target = hitTarget;
-
-        hitTarget.dispatchEvent(federatedEvent);
-      }
-    } else if (pixiEventType === 'pointerup') {
-      if (this.clickedTarget) {
-        const federatedEvent = new FederatedPointerEvent(
-          this.app.renderer.events.rootBoundary,
-        );
-        federatedEvent.type = 'pointerup';
-        federatedEvent.target = this.clickedTarget;
-
-        this.clickedTarget.dispatchEvent(federatedEvent);
-        this.clickedTarget = null;
-      }
-    }
   }
 }
